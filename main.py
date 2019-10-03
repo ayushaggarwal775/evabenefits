@@ -84,7 +84,6 @@ class FetchData:
                         xml_data = ET.fromstring((response.content))
                         ecard_url = xml_data.getchildren()[0].text
                         # Download ECARD file
-                        print('ecard file', ecard_url, username)
                         try:
                             ecard_file = requests.get(ecard_url)
                             
@@ -144,7 +143,9 @@ class FetchData:
             
         try:
             if len(username) < 7:
-                username = 't' + username
+                blob_username = 'T' + str(username)
+            else:
+                blob_username = username
             container_name = 'evabenefits'
             config = read_config()
             block_blob_service = BlockBlobService(connection_string=config['azure']['connection_string'])
@@ -156,21 +157,25 @@ class FetchData:
             # Set the permission so the blobs are public.
             # block_blob_service.set_container_acl(container_name, public_access=PublicAccess.Container)
             if config['cron_flag']['ecard_flag'].lower() == "true":
-                ecard_response = block_blob_service.create_blob_from_path(container_name, '{}/2019/ecard.pdf'.format(username), BASE_DIR + '/{}/2019/ecard.pdf'.format(username))        
+                ecard_response = block_blob_service.create_blob_from_path(container_name, '{}/2019/ecard.pdf'.format(blob_username), BASE_DIR + '/{}/2019/ecard.pdf'.format(username))        
             if config['cron_flag']['enrollment_plan'].lower() == "true":
-                flex_response = block_blob_service.create_blob_from_path(container_name, '{}/flex.pdf'.format(username),  BASE_DIR +'/{}/flex.pdf'.format(username))   
+                flex_response = block_blob_service.create_blob_from_path(container_name, '{}/flex.pdf'.format(blob_username),  BASE_DIR +'/{}/flex.pdf'.format(username))   
+        
+            self.count -=1
+            print('count: ', self.count)
+            if self.count == 0:
+                print()
         except Exception as e:
             # try:
             #     block_blob_service.create_blob_from_path(container_name, '{}/2019/ecard.pdf'.format(username), BASE_DIR + '/{}/2019'.format(username))
             # except Exception as e:
             #     print('error in creating empty blob folder' + str(e))
-            #print('error in uploading blob '+ str(e)) 
-            pass 
+            print('error in uploading blob '+ str(e)) 
+             
         # manager = multiprocessing.Manager()
         # lock = manager.Lock()
         # with lock:
-        self.count -=1
-        print('count: ', self.count, end = '\r')
+    
 
     def execute_all(self):
         # fetch usernames
@@ -179,13 +184,10 @@ class FetchData:
         
         self.count = len(self.usernames)
         # create a threadPool
-        executor = ThreadPoolExecutor(max_workers=80)
-        # TODO delet
-        self.usernames = self.usernames[14]
+        executor = ThreadPoolExecutor(max_workers=80) 
+        # TODO delete
+        # self.usernames = self.usernames[184:185]
         for username in self.usernames:
-            # TODO: DELETEso    
-            if username[0] !='T':
-                continue
             if username[0] == 'T':
                 username = username[1:]
             executor.submit(self.fetch_ecard, username)
